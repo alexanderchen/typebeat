@@ -624,9 +624,12 @@ function deserializeSong(songStr: string) {
                                   if (char === 'X') {
                                        stepElement.classList.add('active');
                                        stepElement.classList.remove('inactive');
+                                       const hue = Math.round(190 - (150 * rowIndex) / 11);
+                                       stepElement.style.color = `hsl(${hue}, 100%, 55%)`;
                                   } else {
                                        stepElement.classList.remove('active');
                                        stepElement.classList.add('inactive');
+                                       stepElement.style.color = '';
                                   }
                              }
                         }
