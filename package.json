@@ -1,0 +1,13 @@
+{
+  "name": "rich-note-remix",
+  "version": "1.0.0",
+  "description": "Remix of the Pretext rich-note demo",
+  "scripts": {
+    "start": "bun index.html --host=127.0.0.1:3005",
+    "drum": "bun drum.html --host=127.0.0.1:3006"
+  },
+  "dependencies": {
+    "@chenglou/pretext": "0.0.3",
+    "tone": "^15.1.22"
+  }
+}
