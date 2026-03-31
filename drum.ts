@@ -37,7 +37,7 @@ const PADS_CONFIG: PadConfig[] = [
     { key: 'HI_HAT_OPEN', label: 'OPEN HAT', word: 'OPENHAT' },
     { key: 'HIGH_TOM', label: 'HI TOM', word: 'HITOM' },
     { key: 'MID_TOM', label: 'MID TOM', word: 'MIDTOM' },
-    { key: 'LOW_TOM', label: 'LOW TOM', word: 'LOWTOM' },
+    { key: 'LOW_TOM', label: 'LO TOM', word: 'LOTOM' },
     { key: 'CLAP', label: 'CLAP', word: 'CLAP' },
     { key: 'RIM', label: 'RIMSHOT', word: 'RIMSHOT' },
     { key: 'WOODBLOCK', label: 'WOODBLOCK', word: 'WOODBLOCK' },
@@ -52,6 +52,7 @@ const ROWS = 12;
 const sequencerState: string[][] = Array(ROWS).fill(0).map(() => Array(STEPS).fill('-'));
 let isDrawing = false;
 let drawMode: 'draw' | 'erase' | null = null;
+let justClicked: boolean = false;
 // Pre-populate with a basic 4/4 house beat
 sequencerState[0][0] = 'X'; // Kick
 sequencerState[0][10] = 'X';
@@ -217,18 +218,26 @@ type CustomGridSynths = {
     [key in InstrumentKey]: any;
 };
 
+let lastToneTime = 0;
+
 function triggerSound(key: InstrumentKey, time?: any) {
-    const t = time || Tone.now();
+    let activeTime = time || Tone.now();
+    if (activeTime <= lastToneTime) {
+        activeTime = lastToneTime + 0.005;
+    }
+    lastToneTime = activeTime;
+    const t = activeTime;
+    
     switch (key) {
         case 'KICK': synths['KICK'].triggerAttackRelease(55, '8n', t); break;
         case 'SNARE': synths['SNARE'].triggerAttackRelease(t); break;
         case 'HI_HAT_CLOSED': 
             synths['HI_HAT_CLOSED'].envelope.decay = 0.03;
-            synths['HI_HAT_CLOSED'].triggerAttack(t); 
+            synths['HI_HAT_CLOSED'].triggerAttackRelease('32n', t); 
             break;
         case 'HI_HAT_OPEN': 
             synths['HI_HAT_OPEN'].envelope.decay = 0.7;
-            synths['HI_HAT_OPEN'].triggerAttack(t); 
+            synths['HI_HAT_OPEN'].triggerAttackRelease('8n', t); 
             break;
         case 'CLAP': synths['CLAP'].triggerAttackRelease('16n', t); break;
         case 'COWBELL': synths['COWBELL'].triggerAttackRelease([540, 800], '16n', t); break;
@@ -237,7 +246,7 @@ function triggerSound(key: InstrumentKey, time?: any) {
         case 'MID_TOM': synths['MID_TOM'].triggerAttackRelease(100, '16n', t); break;
         case 'LOW_TOM': synths['LOW_TOM'].triggerAttackRelease(70, '16n', t); break;
         case 'WOODBLOCK': synths['WOODBLOCK'].triggerAttackRelease(1200, '16n', t); break;
-        case 'CRASH': synths['CRASH'].triggerAttack(t); break;
+        case 'CRASH': synths['CRASH'].triggerAttackRelease('1m', t); break;
     }
 }
 
@@ -253,6 +262,40 @@ function initUI() {
         isDrawing = false; 
         drawMode = null;
     });
+    
+    window.addEventListener('touchstart', (e: any) => { 
+        isDrawing = true; 
+        // Prevents page scrolling while painting sequencer or pads!
+        if ((e.target as HTMLElement).closest('.pad') || (e.target as HTMLElement).closest('.step')) {
+             e.preventDefault();
+        }
+    }, { passive: false });
+    window.addEventListener('touchend', () => { 
+        isDrawing = false; 
+        drawMode = null;
+    });
+
+    const padsWrapper = document.getElementById('pads-wrapper');
+    const onResize = () => {
+        if (padsWrapper && window.innerWidth < 1000) {
+             const scale = window.innerWidth / 750;
+             const pads = document.getElementById('pads');
+             if (pads) {
+                  pads.style.transform = `scale(${scale})`;
+                  pads.style.transformOrigin = 'top left';
+                  padsWrapper.style.height = `${560 * scale}px`;
+             }
+        } else if (padsWrapper) {
+             const pads = document.getElementById('pads');
+             if (pads) {
+                  pads.style.transform = '';
+                  pads.style.transformOrigin = '';
+             }
+             padsWrapper.style.height = '';
+        }
+    };
+    window.addEventListener('resize', onResize);
+    setTimeout(onResize, 50);
 
     // Generate Pads
     PADS_CONFIG.forEach((config, index) => {
@@ -270,8 +313,10 @@ function initUI() {
         const padColor = `hsl(${hue}, 100%, 55%)`;
         padText.style.color = padColor;
         
-        const extraSpace = (config.key === 'KICK' || config.key === 'CLAP') ? '  ' : ' ';
-        const fullWord = config.label + extraSpace;
+        // Add extra space to specific words to prevent alignment bugs
+        const extraSpace = (config.key === 'KICK' || config.key === 'HI_HAT_CLOSED' || config.key === 'MID_TOM' || config.key === 'WOODBLOCK') ? '  ' : ' ';
+        const padLabel = (config.key === 'WOODBLOCK') ? 'WOOD BLOCK' : config.label;
+        const fullWord = padLabel + extraSpace;
         // Infinite generation to fill 15 full rows instead of clamping at 225 letters!
         const textContent = fullWord.repeat(200); 
         
@@ -281,7 +326,7 @@ function initUI() {
         const prepared = prepareWithSegments(pretextString, '12px "Rubik"');
         let cursor: LayoutCursor = { segmentIndex: 0, graphemeIndex: 0 };
         const lines: string[] = [];
-        const requestedWidth = 155; // Padded width inside 180px container
+        const requestedWidth = (config.key === 'LOW_TOM') ? 160 : 155; // Padded width inside 180px container
         
         // Loop until we have exactly 15 full rows!
         while (lines.length < 15) {
@@ -339,17 +384,20 @@ function initUI() {
     });
 
     // Generate Sequencer
-    PADS_CONFIG.forEach((config, rowIndex) => {
-        const row = document.createElement('div');
-        row.className = 'seq-row';
+    for (let rowIndex = 0; rowIndex < 12; rowIndex++) {
+        const config = PADS_CONFIG[rowIndex];
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'seq-row';
+        
+        const hue = Math.round(190 - (150 * rowIndex) / 11);
+        rowDiv.style.setProperty('--row-color', `hsl(${hue}, 100%, 55%)`);
+        rowDiv.style.setProperty('--row-bg-color', `hsl(${hue}, 100%, 15%)`);
 
         const label = document.createElement('div');
         label.className = 'label';
         label.textContent = config.label;
-        
-        const hue = Math.round(190 - (150 * rowIndex) / 11);
         label.style.color = `hsl(${hue}, 100%, 55%)`;
-        row.appendChild(label);
+        rowDiv.appendChild(label);
 
         const stepsDiv = document.createElement('div');
         stepsDiv.className = 'steps';
@@ -373,7 +421,6 @@ function initUI() {
                  if (i % 4 === 0) step.classList.add('bar-start');
                  
                  if (sequencerState[rowIndex][i] === 'X') {
-                     const hue = Math.round(190 - (150 * rowIndex) / 11);
                      step.style.color = `hsl(${hue}, 100%, 55%)`;
                  } else {
                      step.style.color = ''; // Reset
@@ -408,13 +455,40 @@ function initUI() {
                        }
                   }
             });
+
+            step.addEventListener('touchmove', (e: any) => {
+                  if (isDrawing && drawMode) {
+                       const touch = e.touches[0];
+                       const element = document.elementFromPoint(touch.clientX, touch.clientY);
+                       if (element && element.classList.contains('step')) {
+                            const row = parseInt(element.getAttribute('data-row') || '0');
+                            const stepIdx = parseInt(element.getAttribute('data-step') || '0');
+                            const current = sequencerState[row][stepIdx];
+                            
+                            if (drawMode === 'draw' && current !== 'X') {
+                                 sequencerState[row][stepIdx] = 'X';
+                                 element.textContent = 'X';
+                                 element.classList.add('active');
+                                 element.classList.remove('inactive');
+                                 const hue = Math.round(190 - (150 * row) / 11);
+                                 (element as HTMLElement).style.color = `hsl(${hue}, 100%, 55%)`;
+                            } else if (drawMode === 'erase' && current === 'X') {
+                                 sequencerState[row][stepIdx] = '-';
+                                 element.textContent = '-';
+                                 element.classList.add('inactive');
+                                 element.classList.remove('active');
+                                 (element as HTMLElement).style.color = '';
+                            }
+                       }
+                  }
+            });
             
             stepsDiv.appendChild(step);
         }
 
-        row.appendChild(stepsDiv);
-        seqContainer.appendChild(row);
-    });
+        rowDiv.appendChild(stepsDiv);
+        seqContainer.appendChild(rowDiv);
+    }
 
     // Measure initial positions after DOM is painted
     setTimeout(measureParticles, 100);
@@ -509,7 +583,7 @@ function serializeSong(): string {
     let song = `[${bpm}:${dotsPerBeat}:${beatsPerBar}]`;
     
     for (let r = 0; r < ROWS; r++) {
-        const label = PADS_CONFIG[r].label;
+        const label = PADS_CONFIG[r].label.replace(/ /g, '_');
         let sequence = '';
         for (let s = 0; s < STEPS; s++) {
             sequence += sequencerState[r][s] === 'X' ? 'X' : '.';
@@ -537,7 +611,7 @@ function deserializeSong(songStr: string) {
               const label = parts[0];
               const sequence = parts[1];
               
-              const rowIndex = PADS_CONFIG.findIndex(c => c.label === label);
+              const rowIndex = PADS_CONFIG.findIndex(c => c.label.replace(/ /g, '_') === label || c.label === label);
               if (rowIndex !== -1) {
                    for (let s = 0; s < STEPS; s++) {
                         if (s < sequence.length) {
@@ -639,15 +713,20 @@ function setupEventListeners() {
             triggerSound(key);
             applyImpact(index, e.clientX, e.clientY);
             
+            justClicked = true;
+            setTimeout(() => { justClicked = false; }, 100);
+            
             pad.classList.add('active');
             setTimeout(() => pad.classList.remove('active'), 100);
         });
 
         pad.addEventListener('mouseover', (e: any) => {
             if (isDrawing) {
-                const key = pad.getAttribute('data-key') as InstrumentKey;
+                if (justClicked) return;
+                
                 const index = parseInt(pad.getAttribute('data-index') || '0');
                 
+                const key = pad.getAttribute('data-key') as InstrumentKey;
                 Tone.start();
                 triggerSound(key);
                 applyImpact(index, e.clientX, e.clientY);
@@ -657,6 +736,30 @@ function setupEventListeners() {
             }
         });
     });
+
+    const padsContainer = document.getElementById('pads');
+    if (padsContainer) {
+        padsContainer.addEventListener('touchmove', (e: any) => {
+            if (isDrawing) {
+                const touch = e.touches[0];
+                const element = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (!element) return;
+                
+                const pad = element.closest('.pad');
+                if (pad) {
+                     const index = parseInt(pad.getAttribute('data-index') || '0');
+                     
+                     const key = pad.getAttribute('data-key') as InstrumentKey;
+                     Tone.start();
+                     triggerSound(key);
+                     applyImpact(index, touch.clientX, touch.clientY);
+                     
+                     pad.classList.add('active');
+                     setTimeout(() => pad.classList.remove('active'), 100);
+                }
+            }
+        });
+    }
 
 
 
@@ -689,9 +792,11 @@ function setupEventListeners() {
             }
             const steps = document.querySelectorAll('.step');
             steps.forEach(s => {
-                s.textContent = '-';
-                s.classList.remove('active');
-                s.classList.add('inactive');
+                const stepEl = s as HTMLElement;
+                stepEl.textContent = '-';
+                stepEl.classList.remove('active');
+                stepEl.classList.add('inactive');
+                stepEl.style.color = ''; // Remove inline color styles applied by interactions!
             });
         });
     }
@@ -738,14 +843,26 @@ function setupEventListeners() {
         });
     }
 
+    const statusMessage = document.getElementById('status-message');
+
     // Copy button
     const copyBtn = document.getElementById('copy-btn');
     if (copyBtn) {
         copyBtn.addEventListener('click', () => {
              const songStr = serializeSong();
              navigator.clipboard.writeText(songStr);
-             copyBtn.textContent = 'COPIED';
-             setTimeout(() => copyBtn.textContent = 'COPY', 1000);
+             const statusText = document.getElementById('status-text');
+             if (statusMessage && statusText) {
+                  statusText.textContent = 'Song copied to clipboard.';
+                  statusMessage.style.display = 'flex';
+                  if (pasteContainer) pasteContainer.style.display = 'none';
+                  if (helpContainer) helpContainer.style.display = 'none';
+                  if (pasteBtn) pasteBtn.textContent = 'LOAD';
+                  
+                  setTimeout(() => {
+                       statusMessage.style.display = 'none';
+                  }, 2000);
+             }
         });
     }
 
@@ -757,8 +874,18 @@ function setupEventListeners() {
              const url = new URL(window.location.href);
              url.searchParams.set('song', songStr);
              navigator.clipboard.writeText(url.toString());
-             shareBtn.textContent = 'LINK COPIED';
-             setTimeout(() => shareBtn.textContent = 'SHARE', 1000);
+             const statusText = document.getElementById('status-text');
+             if (statusMessage && statusText) {
+                  statusText.textContent = 'Link copied to clipboard.';
+                  statusMessage.style.display = 'flex';
+                  if (pasteContainer) pasteContainer.style.display = 'none';
+                  if (helpContainer) helpContainer.style.display = 'none';
+                  if (pasteBtn) pasteBtn.textContent = 'LOAD';
+                  
+                  setTimeout(() => {
+                       statusMessage.style.display = 'none';
+                  }, 2000);
+             }
         });
     }
 
@@ -766,28 +893,51 @@ function setupEventListeners() {
     const pasteBtn = document.getElementById('paste-btn');
     const pasteContainer = document.getElementById('paste-container');
     const pasteInput = document.getElementById('paste-input') as HTMLInputElement;
-    if (pasteBtn && pasteContainer) {
+    const helpContainer = document.getElementById('help-container');
+    const helpBtn = document.getElementById('help-btn');
+    if (pasteBtn && pasteContainer && helpContainer && helpBtn) {
         pasteBtn.addEventListener('click', () => {
-             if (pasteContainer.style.display === 'none') {
+             if (pasteContainer.style.display === 'none' || pasteContainer.style.display === '') {
                   pasteContainer.style.display = 'flex';
-                  pasteBtn.textContent = 'CANCEL';
+                  helpContainer.style.display = 'none'; // Closes help text if open!
+                  if (statusMessage) {
+                       statusMessage.style.display = 'none';
+                  }
                   pasteInput.focus();
              } else {
                   pasteContainer.style.display = 'none';
-                  pasteBtn.textContent = 'PASTE';
                   pasteInput.value = '';
+             }
+        });
+        
+        helpBtn.addEventListener('click', () => {
+             if (helpContainer.style.display === 'none' || helpContainer.style.display === '') {
+                  helpContainer.style.display = 'block';
+                  pasteContainer.style.display = 'none'; // Closes load box if open!
+                  if (statusMessage) {
+                       statusMessage.style.display = 'none';
+                  }
+                  pasteInput.value = '';
+             } else {
+                  helpContainer.style.display = 'none';
              }
         });
     }
 
-    // Load button
+    const cancelPasteBtn = document.getElementById('cancel-paste-btn');
+    if (cancelPasteBtn && pasteContainer && pasteInput) {
+        cancelPasteBtn.addEventListener('click', () => {
+             pasteContainer.style.display = 'none';
+             pasteInput.value = '';
+        });
+    }    // Load button
     const loadBtn = document.getElementById('load-btn');
     if (loadBtn && pasteInput && pasteContainer && pasteBtn) {
         loadBtn.addEventListener('click', () => {
              if (pasteInput.value.trim() !== '') {
                   deserializeSong(pasteInput.value.trim());
                   pasteContainer.style.display = 'none';
-                  pasteBtn.textContent = 'PASTE';
+                  pasteBtn.textContent = 'LOAD';
                   pasteInput.value = '';
              }
         });
@@ -795,7 +945,7 @@ function setupEventListeners() {
              if (e.key === 'Enter' && pasteInput.value.trim() !== '') {
                   deserializeSong(pasteInput.value.trim());
                   pasteContainer.style.display = 'none';
-                  pasteBtn.textContent = 'PASTE';
+                  pasteBtn.textContent = 'LOAD';
                   pasteInput.value = '';
              }
         });
@@ -809,6 +959,11 @@ function setupEventListeners() {
     };
 
     window.addEventListener('keydown', async (e) => {
+        // Ignore if typing in an input!
+        if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+             return;
+        }
+
         if (e.key === ' ') {
             e.preventDefault(); // Prevent space bar scrolling
             await Tone.start();
