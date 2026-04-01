@@ -314,7 +314,7 @@ function initUI() {
         padText.style.color = padColor;
         
         // Add extra space to specific words to prevent alignment bugs
-        const extraSpace = (config.key === 'KICK' || config.key === 'HI_HAT_CLOSED' || config.key === 'MID_TOM' || config.key === 'WOODBLOCK') ? '  ' : ' ';
+        const extraSpace = (config.key === 'KICK' || config.key === 'HI_HAT_CLOSED') ? '  ' : ' ';
         const padLabel = (config.key === 'WOODBLOCK') ? 'WOOD BLOCK' : config.label;
         const fullWord = padLabel + extraSpace;
         // Infinite generation to fill 15 full rows instead of clamping at 225 letters!
