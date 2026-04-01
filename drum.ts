@@ -683,11 +683,9 @@ function updatePlayhead(step: number) {
     allSteps.forEach(s => {
         const stepIdx = parseInt((s as HTMLElement).dataset.step || '0');
         if (stepIdx === step) {
-            s.style.opacity = '1';
-            s.style.textDecoration = 'underline';
+            s.classList.add('playhead');
         } else {
-            s.style.opacity = '';
-            s.style.textDecoration = '';
+            s.classList.remove('playhead');
         }
     });
 }
