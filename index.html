@@ -211,7 +211,7 @@
                 display: flex !important;
                 flex-direction: column !important;
                 flex-grow: 1 !important;
-                height: calc(100vh - (560px * (100vw / 750))) !important;
+                overflow: hidden !important;
                 width: 100% !important;
             }
             #sequencer {
@@ -226,6 +226,7 @@
                 border-top: 1px solid #444 !important;
                 width: 100vw !important;
                 box-sizing: border-box !important;
+                flex-shrink: 0 !important;
             }
         }
     </style>
@@ -277,7 +278,7 @@
 
                     <!-- Row 4: Help Content -->
                     <div id="help-container" style="display: none; font-size: 0.75rem; color: #888; margin-top: 0.2rem; max-width: 420px; line-height: 1.4; font-family: 'Rubik', sans-serif; text-transform: none; position: absolute; top: 0; left: 0; background: #000; padding-bottom: 0.5rem; z-index: 10; letter-spacing: normal;">
-                         Built with Gemini using <a href="https://tonejs.github.io/" target="_blank" style="color: #bbb; text-decoration: underline;">Tone.js</a> + <a href="https://github.com/chenglou/pretext" target="_blank" style="color: #bbb; text-decoration: underline;">Pretext</a> by <a href="https://x.com/alexanderchen" target="_blank" style="color: #bbb; text-decoration: underline;">@alexanderchen</a>.<br/>Press 0-9, -, = to play sounds.
+                         Built with Gemini using <a href="https://tonejs.github.io/" target="_blank" style="color: #bbb; text-decoration: underline;">Tone.js</a> + <a href="https://github.com/chenglou/pretext" target="_blank" style="color: #bbb; text-decoration: underline;">Pretext</a> by <a href="https://x.com/alexanderchen" target="_blank" style="color: #bbb; text-decoration: underline;">@alexanderchen</a>.<br/>Press 0-9, -, = to play sounds. <span style="font-size: 0.6rem; opacity: 0.5; margin-left: 0.2rem;">v0.1.0</span>
                     </div>
                     
                     <!-- Row 5: Status Message -->
