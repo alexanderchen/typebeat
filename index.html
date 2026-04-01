@@ -72,7 +72,7 @@
             margin: 0 auto;
             touch-action: none;
         }
-        .pad, .step {
+        .pad, .step, #sequencer, .steps {
             -webkit-tap-highlight-color: transparent;
             user-select: none;
             -webkit-user-select: none;
@@ -209,22 +209,27 @@
             z-index: 10;
         }
         
-        @media (max-width: 999px) {
-            .label {
-                font-size: 0.75rem !important;
-                width: 75px !important;
-            }
-            body {
-                justify-content: flex-start !important;
-                padding-top: 0 !important;
-            }
-            #pads-wrapper {
-                width: 100vw !important;
-                overflow: hidden !important;
-                position: relative !important;
-                margin: 0 !important;
-                padding: 0 !important;
-            }
+            @media (max-width: 999px) {
+                .label {
+                    font-size: 0.75rem !important;
+                    width: 75px !important;
+                }
+                body {
+                    justify-content: flex-start !important;
+                    padding-top: 0 !important;
+                }
+                #pads-wrapper {
+                    width: 100vw !important;
+                    overflow: hidden !important;
+                    position: relative !important;
+                    margin: 0 !important;
+                    padding: 0 10px !important;
+                    box-sizing: border-box !important;
+                    display: flex !important;
+                    justify-content: flex-start !important;
+                    align-items: center !important;
+                    flex-grow: 1 !important;
+                }
             #app {
                 padding: 0 !important;
                 margin: 0 !important;
@@ -238,14 +243,16 @@
             #sequencer-section {
                 display: flex !important;
                 flex-direction: column !important;
-                flex-grow: 1 !important;
                 overflow: hidden !important;
                 width: 100% !important;
+                flex-shrink: 0 !important;
             }
             #sequencer {
-                flex-grow: 1 !important;
                 overflow-y: auto !important;
                 overflow-x: hidden !important;
+                margin-bottom: 0.5rem !important;
+                border-top: 1px solid #444 !important;
+                padding-top: 0.5rem !important;
             }
             #controls {
                 background-color: #000 !important;
