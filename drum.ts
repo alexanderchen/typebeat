@@ -267,22 +267,22 @@ function initUI() {
 
     const padsWrapper = document.getElementById('pads-wrapper');
     const onResize = () => {
-        if (padsWrapper && window.innerWidth < 1000) {
-             const scale = window.innerWidth / 750;
-             const pads = document.getElementById('pads');
-             if (pads) {
-                  pads.style.transform = `scale(${scale})`;
-                  pads.style.transformOrigin = 'top left';
-                  padsWrapper.style.height = `${560 * scale}px`;
-             }
-        } else if (padsWrapper) {
-             const pads = document.getElementById('pads');
-             if (pads) {
-                  pads.style.transform = '';
-                  pads.style.transformOrigin = '';
-             }
-             padsWrapper.style.height = '';
-        }
+         const pads = document.getElementById('pads');
+         if (pads && padsWrapper && window.innerWidth < 1000) {
+              const rect = padsWrapper.getBoundingClientRect();
+              if (rect.width > 0 && rect.height > 0) {
+                   const availableW = rect.width - 20; // Account for 10px padding on left/right!
+                   const scaleX = availableW / 750;
+                   const scaleY = rect.height / 560;
+                   const scale = Math.min(scaleX, scaleY, 1); // Fit both, don't upscale!
+                   
+                   pads.style.transform = `scale(${scale})`;
+                   pads.style.transformOrigin = 'left center';
+              }
+         } else if (pads) {
+              pads.style.transform = '';
+              pads.style.transformOrigin = '';
+         }
     };
     window.addEventListener('resize', onResize);
     setTimeout(onResize, 50);
