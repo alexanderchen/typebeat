@@ -682,7 +682,7 @@ function updatePlayhead(step: number) {
     const allSteps = document.querySelectorAll('.step');
     allSteps.forEach(s => {
         const stepIdx = parseInt((s as HTMLElement).dataset.step || '0');
-        if (stepIdx === step) {
+        if (stepIdx === step && step !== -1) {
             s.classList.add('playhead');
         } else {
             s.classList.remove('playhead');
