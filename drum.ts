@@ -52,6 +52,7 @@ const ROWS = 12;
 const sequencerState: string[][] = Array(ROWS).fill(0).map(() => Array(STEPS).fill('-'));
 let isDrawing = false;
 let drawMode: 'draw' | 'erase' | null = null;
+let activePadIndex: string | null = null; // To prevent double triggers on pads
 let justClicked: boolean = false;
 // Pre-populate with a basic 4/4 house beat
 sequencerState[0][0] = 'X'; // Kick
@@ -257,22 +258,11 @@ function initUI() {
 
     if (!padsContainer || !seqContainer) return;
 
-    window.addEventListener('mousedown', () => { isDrawing = true; });
-    window.addEventListener('mouseup', () => { 
+    window.addEventListener('pointerdown', () => { isDrawing = true; });
+    window.addEventListener('pointerup', () => { 
         isDrawing = false; 
         drawMode = null;
-    });
-    
-    window.addEventListener('touchstart', (e: any) => { 
-        isDrawing = true; 
-        // Prevents page scrolling while painting sequencer or pads!
-        if ((e.target as HTMLElement).closest('.pad') || (e.target as HTMLElement).closest('.step')) {
-             e.preventDefault();
-        }
-    }, { passive: false });
-    window.addEventListener('touchend', () => { 
-        isDrawing = false; 
-        drawMode = null;
+        activePadIndex = null; // Clear cached drum pad for state gates
     });
 
     const padsWrapper = document.getElementById('pads-wrapper');
@@ -432,7 +422,7 @@ function initUI() {
                 step.style.color = `hsl(${hue}, 100%, 55%)`;
             }
             
-            step.addEventListener('mousedown', () => {
+            step.addEventListener('pointerdown', () => {
                  const current = sequencerState[rowIndex][i];
                  drawMode = current === 'X' ? 'erase' : 'draw';
                  
@@ -456,10 +446,9 @@ function initUI() {
                   }
             });
 
-            step.addEventListener('touchmove', (e: any) => {
-                  if (isDrawing && drawMode) {
-                       const touch = e.touches[0];
-                       const element = document.elementFromPoint(touch.clientX, touch.clientY);
+            step.addEventListener('pointermove', (e: PointerEvent) => {
+                  if (isDrawing && drawMode && e.pointerType === 'touch') {
+                       const element = document.elementFromPoint(e.clientX, e.clientY);
                        if (element && element.classList.contains('step')) {
                             const row = parseInt(element.getAttribute('data-row') || '0');
                             const stepIdx = parseInt(element.getAttribute('data-step') || '0');
@@ -708,57 +697,45 @@ function setupEventListeners() {
     // Pads
     const pads = document.querySelectorAll('.pad');
     pads.forEach(pad => {
-        pad.addEventListener('mousedown', (e: any) => {
+        pad.addEventListener('pointerdown', (e: PointerEvent) => {
+            const indexStr = pad.getAttribute('data-index') || '0';
+            activePadIndex = indexStr; // Set state gate
+            
+            const index = parseInt(indexStr);
             const key = pad.getAttribute('data-key') as InstrumentKey;
-            const index = parseInt(pad.getAttribute('data-index') || '0');
             
             Tone.start();
             triggerSound(key);
             applyImpact(index, e.clientX, e.clientY);
             
-            justClicked = true;
-            setTimeout(() => { justClicked = false; }, 100);
-            
             pad.classList.add('active');
             setTimeout(() => pad.classList.remove('active'), 100);
-        });
-
-        pad.addEventListener('mouseover', (e: any) => {
-            if (isDrawing) {
-                if (justClicked) return;
-                
-                const index = parseInt(pad.getAttribute('data-index') || '0');
-                
-                const key = pad.getAttribute('data-key') as InstrumentKey;
-                Tone.start();
-                triggerSound(key);
-                applyImpact(index, e.clientX, e.clientY);
-                
-                pad.classList.add('active');
-                setTimeout(() => pad.classList.remove('active'), 100);
-            }
         });
     });
 
     const padsContainer = document.getElementById('pads');
     if (padsContainer) {
-        padsContainer.addEventListener('touchmove', (e: any) => {
+        padsContainer.addEventListener('pointermove', (e: PointerEvent) => {
             if (isDrawing) {
-                const touch = e.touches[0];
-                const element = document.elementFromPoint(touch.clientX, touch.clientY);
-                if (!element) return;
-                
-                const pad = element.closest('.pad');
+                const element = document.elementFromPoint(e.clientX, e.clientY);
+                const pad = element?.closest('.pad');
                 if (pad) {
-                     const index = parseInt(pad.getAttribute('data-index') || '0');
+                     const indexStr = pad.getAttribute('data-index') || '0';
                      
-                     const key = pad.getAttribute('data-key') as InstrumentKey;
-                     Tone.start();
-                     triggerSound(key);
-                     applyImpact(index, touch.clientX, touch.clientY);
-                     
-                     pad.classList.add('active');
-                     setTimeout(() => pad.classList.remove('active'), 100);
+                     // State gate! Only trigger if we moved onto a NEW pad
+                     if (indexStr !== activePadIndex) {
+                          activePadIndex = indexStr;
+                          
+                          const index = parseInt(indexStr);
+                          const key = pad.getAttribute('data-key') as InstrumentKey;
+                          
+                          Tone.start();
+                          triggerSound(key);
+                          applyImpact(index, e.clientX, e.clientY);
+                          
+                          pad.classList.add('active');
+                          setTimeout(() => pad.classList.remove('active'), 100);
+                     }
                 }
             }
         });
