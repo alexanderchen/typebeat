@@ -266,26 +266,36 @@ function initUI() {
     });
 
     const padsWrapper = document.getElementById('pads-wrapper');
-    const onResize = () => {
-         const pads = document.getElementById('pads');
-         if (pads && padsWrapper && window.innerWidth < 1000) {
-              const rect = padsWrapper.getBoundingClientRect();
-              if (rect.width > 0 && rect.height > 0) {
-                   const availableW = rect.width - 20; // Account for 10px padding on left/right!
-                   const scaleX = availableW / 750;
-                   const scaleY = rect.height / 560;
-                   const scale = Math.min(scaleX, scaleY, 1); // Fit both, don't upscale!
-                   
-                   pads.style.transform = `scale(${scale})`;
-                   pads.style.transformOrigin = 'left center';
+    const resizeObserver = new ResizeObserver(entries => {
+         for (const entry of entries) {
+              const pads = document.getElementById('pads');
+              if (pads) {
+                   const { width, height } = entry.contentRect;
+                   if (width > 0 && height > 0 && window.innerWidth < 1000) {
+                        const scaleX = (width - 20) / 750;
+                        const scaleY = height / 560;
+                        const scale = Math.min(scaleX, scaleY, 1);
+                        
+                        pads.style.transform = `scale(${scale})`;
+                        
+                        if (scale < 1) {
+                             pads.style.transformOrigin = 'left center';
+                             padsWrapper.style.justifyContent = 'flex-start';
+                        } else {
+                             pads.style.transformOrigin = 'center center';
+                             padsWrapper.style.justifyContent = 'center';
+                        }
+                   } else {
+                        pads.style.transform = '';
+                        pads.style.transformOrigin = '';
+                   }
               }
-         } else if (pads) {
-              pads.style.transform = '';
-              pads.style.transformOrigin = '';
          }
-    };
-    window.addEventListener('resize', onResize);
-    setTimeout(onResize, 50);
+    });
+
+    if (padsWrapper) {
+         resizeObserver.observe(padsWrapper);
+    }
 
     // Generate Pads
     PADS_CONFIG.forEach((config, index) => {
@@ -749,6 +759,7 @@ function setupEventListeners() {
             await Tone.start();
             if (isPlaying) {
                 Tone.Transport.stop();
+                Tone.Draw.cancel();
                 currentStep = 0;
                 updatePlayhead(-1);
                 if (playBtn) playBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-play"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;

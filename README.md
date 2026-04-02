@@ -1,7 +1,7 @@
 # TYPEBEAT
 A drum machine made with text. Built with Gemini using [Tone.js](https://tonejs.github.io/) and [Pretext](https://github.com/chenglou/pretext) by [@alexanderchen](https://x.com/alexanderchen).
 
-[Live Demo]: (https://alexanderchen.github.io/typebeat/)
+Live demo: https://alexanderchen.github.io/typebeat/
 
 
 ## Keyboard Controls
